@@ -336,6 +336,25 @@ BTN_RED     = "#E05252"
 BTN_YELLOW  = "#F0B429"
 BTN_PURPLE  = "#8B5CF6"
 
+# ---------- الرموز المميزة (من ريتوال إيموجيز في الذاكرة) ----------
+try:
+    import Avetaar_emojis as EMO  # PREMIUM_EMOJI_IDS + tg() + auto()
+    HAS_EMOJI = True
+except Exception:
+    HAS_EMOJI = False
+
+def tg(em: str, doc_id=None, size=None) -> str:
+    """ينشر رمز مميز (premium) عند دعمه، وإلا يخلي الإيموجي الأساسي (fallback)."""
+    if HAS_EMOJI and EMO:
+        return EMO.tg(em, doc_id=doc_id, size=size)
+    return em
+
+def auto_emojis(text: str) -> str:
+    """بدّل كل الإيموجيز في النص برموز مميزة (تلقائي)."""
+    if HAS_EMOJI and EMO:
+        return EMO.auto(text)
+    return text
+
 def load_bot_token() -> str:
     for p in (".", os.path.dirname(os.path.abspath(__file__))):
         env_file = os.path.join(p, ".env")
@@ -369,7 +388,7 @@ def bot_cards_message(handle: str, cards: list) -> str:
     L = [f"🎴 <b>كارتات {esc(handle)}</b>", ""]
     if not cards:
         L.append("ما فيه كارتات متاحة لهذا اللاعب.")
-        return "\n".join(L)
+        return auto_emojis("\n".join(L))
     L.append(f"إجمالي الكارتات: <b>{len(cards)}</b>")
     L.append("")
     # عرض كل نوع كارت (مجمّع) — الأهم: الرئيسي + ذي أسعار
@@ -390,7 +409,7 @@ def bot_cards_message(handle: str, cards: list) -> str:
     if len(cards) > 12:
         L.append(f"⚡ باقي {len(cards) - 12} كارت من نفس الأنواع.")
     L.append("⚽ eFootball PES")
-    return "\n".join(L)
+    return auto_emojis("\n".join(L))
 
 def bot_team_message(team: dict) -> str:
     """رسالة تلغرام لبطاقة فريق (تشكيلة + مدرب + منافسات)."""
@@ -415,7 +434,7 @@ def bot_team_message(team: dict) -> str:
         L.append(f"  ⚡ ... و {len(team['squad']) - 15} لاعب إضافي.")
     L.append("")
     L.append("⚽ eFootball PES")
-    return "\n".join(L)
+    return auto_emojis("\n".join(L))
 
 def bot_comps_message(comps: list) -> str:
     """رسالة تلغرام لقائمة المسابقات."""
@@ -427,7 +446,7 @@ def bot_comps_message(comps: list) -> str:
         L.append(f"  ⚡ ... و {len(comps) - 20} مسابقة أخرى.")
     L.append("")
     L.append("⚽ eFootball PES")
-    return "\n".join(L)
+    return auto_emojis("\n".join(L))
 
 def bot_compare_message(name_a: str, name_b: str, card_a: dict, card_b: dict) -> str:
     """رسالة تلغرام لمقارنة لاعبين جنب بعض."""
@@ -454,7 +473,7 @@ def bot_compare_message(name_a: str, name_b: str, card_a: dict, card_b: dict) ->
         L.append(f"{emoji} {k}: <b>{va}</b> {bar_a}  |  <b>{vb}</b> {bar_b}")
     L.append("")
     L.append("⚽ eFootball PES")
-    return "\n".join(L)
+    return auto_emojis("\n".join(L))
 
 def bot_player_message(card: dict) -> str:
     """رسالة تلغرام منظمة — كل سطر مستقل و قصير (بدون ‡/·، شريط مختصر، parse_mode HTML)."""
@@ -500,21 +519,65 @@ def bot_player_message(card: dict) -> str:
         L.append(f"{emoji} {k}: <b>{v}</b>  {stat_bar(v)}")
     L.append("")
     L.append("⚽ eFootball PES")
-    return "\n".join(L)
+    return auto_emojis("\n".join(L))
 
 # ---------- نظام ألوان الأزرار ----------
-# كل نوع زر له لون (الأزرق للبحث/التنقل، الأخضر للاعبين/الإيجابي، الأحمر للخروج/السالب)
-BTN_COLOR = {
-    "search":   "#3297FD",   # أزرق — البحث والتنقل
-    "players":  "#45D0A8",   # أخضر — لاعبين
-    "positive": "#45D0A8",   # أخضر — إجراءات إيجابية (إعادة، آخر استعلام)
-    "negative": "#E05252",   # أحمر — إجراءات سالبة (إلغاء، خروج)
-    "info":     "#F0B429",   # أصفر — معلومات
+# حقل "style" الرسمي (Bot API 9.4+) — قيمه 3 بس: primary=أزرق | success=أخضر | danger=أحمر
+# + رمز لون في نص الزر (🟦🟩🟥) كاحتياط لو العميل ما يدعم style
+BTN_STYLE = {
+    "search":   ("primary", "🟦"),   # أزرق — البحث والتنقل
+    "players":  ("success", "🟩"),   # أخضر — لاعبين
+    "positive": ("success", "🟩"),   # أخضر — إجراءات إيجابية (إعادة، آخر استعلام)
+    "negative": ("danger",  "🟥"),   # أحمر — إجراءات سالبة (إلغاء، خروج)
+    "info":     ("primary", "🟦"),   # أزرق — معلومات/ميزات
+}
+
+# أيقونة الزر → معرّف الرمز المميز (لو الزر بداء بإيموجي، يظهر رمز premium بدل الإيموجي)
+BTN_ICONS = {
+    "⚽": "5974235702701853774",  # target ball
+    "🎴": "5444854925903295394",  # card
+    "👟": "5319250759110374827",  # cat/quick
+    "🧊": "5316599316884766402",  # ice
+    "🛡️": "5251203410396458957",  # shield
+    "🏆": "5188344996356448758",  # trophy
+    "❌": "5210952531676504517",  # cross
+    "⚔️": "5319156402973849743",  # compare
+    "🔁": "5316635510574169206",  # back
+    "✍️": "5445128296276718145",  # write
+}
+
+# أيقونة الزر حسب نوعه (callback_data prefix) → معرّف الرمز المميز (sticker)
+BTN_ICON_BY_CB = {
+    "playerprompt": "5974235702701853774",  # target
+    "cardsprompt":  "5444854925903295394",  # card
+    "search:":      "5319250759110374827",  # quick player
+    "teamprompt":   "5251203410396458957",  # shield
+    "comps":        "5188344996356448758",  # trophy
+    "exit":         "5210952531676504517",  # cross
+    "menu":         "5316635510574169206",  # back
+    "replay:":      "5316635510574169206",  # back
+    "cards:":       "5444854925903295394",  # card
+    "cmp:":         "5319156402973849743",  # compare
+    "cmpdo:":       "5319156402973849743",  # compare
+    "cmpwrite:":    "5445128296276718145",  # write
+    "teamq:":       "5251203410396458957",  # shield
 }
 
 def _btn(text: str, callback_data: str, color_key: str) -> dict:
-    """زر inline بلون من نظام الألوان."""
-    return {"text": text, "callback_data": callback_data, "button_color": BTN_COLOR.get(color_key, "#3297FD")}
+    """زر inline: حقل "style" الرسمي (أزرق/أخضر/أحمر) + icon (رمز مميز) حسب نوع الزر."""
+    style, mark = BTN_STYLE.get(color_key, ("", ""))
+    b = {"text": text, "callback_data": callback_data}
+    if style:
+        b["style"] = style
+    # أيقونة مميزة حسب prefix من callback_data (تظهر كـ sticker بدل الإيموجي المكرر)
+    icon_id = None
+    for prefix, ic in BTN_ICON_BY_CB.items():
+        if callback_data.startswith(prefix):
+            icon_id = ic
+            break
+    if icon_id:
+        b["icon_custom_emoji_id"] = icon_id
+    return b
 
 def buttons_for_player(card: dict):
     """يعيد inline-keyboard كـ object — الـ API يتوقعه بنية dict بـ 'inline_keyboard'."""
@@ -522,12 +585,12 @@ def buttons_for_player(card: dict):
     return {
         "inline_keyboard": [
             [
-                _btn("⚽ إعادة", "menu", "search"),
-                _btn("🔁 آخر استعلام", f"replay:{card['handle']}", "positive"),
-                _btn("🎴 الكارتات", f"cards:{card['handle']}", "info"),
+                _btn("إعادة", "menu", "search"),
+                _btn("آخر استعلام", f"replay:{card['handle']}", "positive"),
+                _btn("الكارتات", f"cards:{card['handle']}", "info"),
             ],
             [
-                _btn("⚔️ مقارنة", f"cmp:{card['handle']}", "info"),
+                _btn("مقارنة", f"cmp:{card['handle']}", "info"),
             ],
         ]
     }
@@ -562,43 +625,50 @@ def bot_handle_callback(token, update):
         # اختيار فريق من أزرار "أشهر الفرق"
         team_q = data[6:]
         _send_team_result(token, chat_id, team_q)
-    elif data.startswith("cards:"):
-        # زر الكارتات من بطاقة اللاعب — يعرض كارتات نفس اللاعب
-        handle = data[6:]
-        _send_cards_result(token, chat_id, handle)
-    elif data == "cardsprompt":
-        # زر من القائمة الرئيسية — يطلب اسم اللاعب
+    elif data == "playerprompt":
+        # زر "استعلام لاعب" — يطلب الاسم بالكتابة
+        _pending_action[chat_id] = "player"
         tg_call(token, "sendMessage", {
             "chat_id": chat_id,
-            "text": "اكتب اسم اللاعب بالإنجليزية (بدون مسافات) لعرض كل كارتاته:\nمثل: <code>mbappe</code>",
+            "text": "اكتب اسم اللاعب بالإنجليزية (بدون مسافات):\nمثل: <code>mbappe</code> أو <code>messi</code>",
+            "parse_mode": "HTML",
+            "reply_markup": buttons_for_menu(),
+        })
+    elif data == "cardsprompt":
+        # زر "كارتات لاعب" — يطلب الاسم بالكتابة
+        _pending_action[chat_id] = "cards"
+        tg_call(token, "sendMessage", {
+            "chat_id": chat_id,
+            "text": "اكتب اسم اللاعب لعرض كل كارتاته:\nمثل: <code>mbappe</code>",
             "parse_mode": "HTML",
             "reply_markup": buttons_for_menu(),
         })
     elif data == "teamprompt":
-        # زر من القائمة الرئيسية — يطلب اسم الفريق
+        # زر "تشكيلة فريق" — يعرض أشهر الفرق كأزرار (ما يحتاج كتابة)
+        team = fetch_team("paris")  # عرض افتراضي + أزرار
         tg_call(token, "sendMessage", {
             "chat_id": chat_id,
-            "text": "اكتب اسم الفريق بالإنجليزية لعرض تشكيلته:\nمثل: <code>psg</code> أو <code>paris</code>",
-            "parse_mode": "HTML",
-            "reply_markup": buttons_for_menu(),
+            "text": "اختر فريقًا لعرض تشكيلته:",
+            "reply_markup": buttons_for_teams(),
         })
     elif data == "comps":
-        # زر من القائمة الرئيسية — يعرض قائمة المسابقات
+        # زر "المسابقات" — يعرض القائمة مباشرة
         comps = fetch_competitions()
         if comps:
             tg_call(token, "sendMessage", {
                 "chat_id": chat_id,
                 "text": bot_comps_message(comps),
                 "parse_mode": "HTML",
+                "reply_markup": buttons_for_menu(),
             })
         else:
             tg_call(token, "sendMessage", {"chat_id": chat_id, "text": " ⛔ تعذّر جلب قائمة المسابقات."})
     elif data.startswith("cmp:"):
-        # زر مقارنة من بطاقة اللاعب — يطلب اللاعب الثاني
+        # زر مقارنة من بطاقة اللاعب — يعرض أزرار اختيار اللاعب الثاني
         first_handle = data[4:]
         tg_call(token, "sendMessage", {
             "chat_id": chat_id,
-            "text": f"أنت تقارن <b>{esc(first_handle)}</b> مع من؟\nاكتب اسم اللاعب الثاني أو اختر من القائمة:",
+            "text": f"مقارنة <b>{esc(first_handle)}</b> مع من؟ اختر:",
             "parse_mode": "HTML",
             "reply_markup": buttons_for_compare(first_handle),
         })
@@ -608,16 +678,9 @@ def bot_handle_callback(token, update):
         if len(parts) == 3:
             first, second = parts[1], parts[2]
             _send_compare_result(token, chat_id, first, second)
-    elif data.startswith("cmpwrite:"):
-        # كتابة يدوية للاعب الثاني — نخزّن اللاعب الأول مؤقتا بالمحادثة
-        first_handle = data[9:]
-        _pending_compare[chat_id] = first_handle
-        tg_call(token, "sendMessage", {
-            "chat_id": chat_id,
-            "text": f"اكتب اسم اللاعب الثاني (بالإنجليزية) لمقارنته مع <b>{esc(first_handle)}</b>.",
-            "parse_mode": "HTML",
-            "reply_markup": buttons_for_menu(),
-        })
+
+# تخزين مؤقت للإجراء المعلّق لكل محادثة (عند استخدام الأزرار اللي تتطلب كتابة)
+_pending_action = {}
 
 def buttons_for_compare(first_handle: str):
     """أزرار اختيار اللاعب الثاني للمقارنة + زر رجوع للقائمة."""
@@ -630,36 +693,35 @@ def buttons_for_compare(first_handle: str):
                 for q in quick[:3]
             ],
             [
-                _btn("⚽ رجوع للقائمة", "menu", "search"),
-                _btn("✍️ كتابة يدوية", f"cmpwrite:{first_handle}", "negative"),
+                _btn("رجوع للقائمة", "menu", "search"),
+                _btn("كتابة يدوية", f"cmpwrite:{first_handle}", "negative"),
             ],
         ]
     }
 
 def buttons_for_menu():
-    """يعيد inline-keyboard كـ object — الـ API يتوقعه بنية dict بـ 'inline_keyboard'.
+    """يعيد inline-keyboard كـ object — كل شيء بأزرار (بدون أوامر).
     نظام الألوان: الأزرق للبحث/التنقل، الأخضر للاعبين، الأصفر للميزات، الأحمر للخروج."""
     return {
         "inline_keyboard": [
             [
-                _btn("🔍 استعلام لاعب", "search:", "search"),       # أزرق — بحث لاعب
-                _btn("🎴 كارتات لاعب", "cardsprompt", "info"),    # أصفر — كارتات
+                _btn("استعلام لاعب", "playerprompt", "search"),     # أزرق — استعلام لاعب
+                _btn("كارتات لاعب", "cardsprompt", "info"),        # أصفر — كارتات
             ],
             [
-                _btn("👟 mbappe", "search:mbappe", "players"),     # أخضر — لاعب
-                _btn("🧊 messi",  "search:messi",  "players"),
-                _btn("⚽ kane",   "search:kane",    "players"),
+                _btn("mbappe", "search:mbappe", "players"),        # أخضر — لاعب
+                _btn("messi", "search:messi", "players"),
+                _btn("kane", "search:kane", "players"),
             ],
             [
-                _btn("🛡️ فريق", "teamprompt", "info"),             # أصفر — فريق
-                _btn("🏆 مسابقات", "comps", "info"),               # أصفر — مسابقات
-                _btn("❌ خروج", "exit", "negative"),                # أحمر — خروج
+                _btn("تشكيلة فريق", "teamprompt", "info"),        # أصفر — فريق
+                _btn("المسابقات", "comps", "info"),                # أصفر — مسابقات
+            ],
+            [
+                _btn("خروج", "exit", "negative"),                  # أحمر — خروج
             ],
         ]
     }
-
-# تخزين مؤقت للاعب المقارنة الأول (عند استخدام "كتابة يدوية")
-_pending_compare = {}
 
 def _handle_update(token, u):
     """معالجة تحديث واحد (رسالة أو callback) — البوت لا يتوقف على أي خطأ هنا."""
@@ -668,47 +730,23 @@ def _handle_update(token, u):
         text = (msg.get("text") or "").strip()
         chat_id = msg["chat"]["id"]
         tl = text.lower()
-        if tl in ("/start", "start", "ابدأ") or tl in ("/help", "help", "دليل"):
+        # كل التفاعل بأزرار — /start و /help يفتحان القائمة فقط
+        if tl in ("/start", "start", "ابدأ", "/help", "help", "دليل", "/"):
             tg_call(token, "sendMessage", {
                 "chat_id": chat_id,
-                "text": " 👋 أهلا! اختر من الأزرار، أو اكتب اسم اللاعب بالإنجليزية مباشرةً.",
+                "text": " 👋 أهلا! اضغط زرًا من القائمة للتفاعل (كل شيء بأزرار):",
                 "reply_markup": buttons_for_menu(),
             })
-        elif tl.startswith("/player"):
-            handle = text.split(None, 1)[-1].strip() if " " in text else ""
-            _send_player_result(token, chat_id, handle)
-        elif tl.startswith("/cards"):
-            handle = text.split(None, 1)[-1].strip() if " " in text else ""
-            _send_cards_result(token, chat_id, handle)
-        elif tl.startswith("/team"):
-            handle = text.split(None, 1)[-1].strip() if " " in text else ""
-            _send_team_result(token, chat_id, handle)
-        elif tl.startswith("/comps"):
-            comps = fetch_competitions()
-            if comps:
-                tg_call(token, "sendMessage", {
-                    "chat_id": chat_id,
-                    "text": bot_comps_message(comps),
-                    "parse_mode": "HTML",
-                })
-            else:
-                tg_call(token, "sendMessage", {"chat_id": chat_id, "text": " ⛔ تعذّر جلب قائمة المسابقات."})
-        elif tl.startswith("/compare"):
-            parts = text.split(None, 2)
-            if len(parts) >= 3:
-                _send_compare_result(token, chat_id, parts[1], parts[2])
-            else:
-                tg_call(token, "sendMessage", {
-                    "chat_id": chat_id,
-                    "text": "استخدم: <code>/compare mbappe messi</code>",
-                    "parse_mode": "HTML",
-                })
         elif not text.startswith("/"):
-            # نص عادي — نتحقق من وجود مقارنة معلّقة أولًا
-            if chat_id in _pending_compare:
-                first = _pending_compare.pop(chat_id)
-                _send_compare_result(token, chat_id, first, text)
+            # نص عادي — نتحقق من الإجراء المعلّق (من زر playerprompt أو cardsprompt)
+            if chat_id in _pending_action:
+                action = _pending_action.pop(chat_id)
+                if action == "player":
+                    _send_player_result(token, chat_id, text)
+                elif action == "cards":
+                    _send_cards_result(token, chat_id, text)
             else:
+                # ما فيه إجراء معلّق — نتعامل مع النص كاسم لاعب (أبسط استخدام)
                 _send_player_result(token, chat_id, text)
     cb = u.get("callback_query")
     if cb:
@@ -767,13 +805,13 @@ def buttons_for_teams():
     return {
         "inline_keyboard": [
             [
-                _btn("🛡️ " + t, f"teamq:{t}", "info") for t in TEAMS[:4]
+                _btn(t, f"teamq:{t}", "info") for t in TEAMS[:4]
             ],
             [
-                _btn("🛡️ " + t, f"teamq:{t}", "info") for t in TEAMS[4:]
+                _btn(t, f"teamq:{t}", "info") for t in TEAMS[4:]
             ],
             [
-                _btn("⚽ رجوع للقائمة", "menu", "search"),
+                _btn("رجوع للقائمة", "menu", "search"),
             ],
         ]
     }
@@ -801,21 +839,33 @@ def _send_compare_result(token, chat_id, handle_a, handle_b):
         "reply_markup": buttons_for_menu(),
     })
 
+def _single_instance_lock():
+    """قفل ضمان نسخة وحدة — يمنع 'Conflict: terminated by other getUpdates request'
+    لما أكثر من نسخة بوت تحاول استطلاع نفس التوكن في نفس الوقت."""
+    import socket
+    # نحفظ اللوك في ملف مؤقت جانبي
+    lock_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".bot_lock")
+    if os.path.exists(lock_path):
+        with open(lock_path) as f:
+            old_pid = f.read().strip()
+        try:
+            # تحقق إذا العملية القديمة ما زالت شغالة
+            import signal
+            os.kill(int(old_pid), 0)
+            return False  # نسخة ثانية ما زالت شغالة
+        except (ProcessLookupError, ValueError, OSError):
+            pass
+    with open(lock_path, "w") as f:
+        f.write(str(os.getpid()))
+    return True
+
 def bot_run_long_poll():
     token = load_bot_token()
     if not token:
         sys.exit("لا يوجد بوت تكين. أنشئ بوتا مع @BotFather وضع التوكن في ملف .env بجانب السكربت:\n  BOT_TOKEN=123456:ABC...")
-    tg_call(token, "setMyCommands", {
-        "commands": json.dumps([
-            {"command": "start",   "description": "القائمة الرئيسية"},
-            {"command": "player",  "description": "اسم اللاعب بالإنجليزية"},
-            {"command": "cards",   "description": "كارتات لاعب"},
-            {"command": "team",    "description": "تشكيلة فريق"},
-            {"command": "comps",   "description": "قائمة المسابقات"},
-            {"command": "compare", "description": "مقارنة لاعبين"},
-            {"command": "help",    "description": "دليل الاستخدام"},
-        ], ensure_ascii=False)
-    })
+    if not _single_instance_lock():
+        sys.exit(f"{C('YELLOW')}⚠️ نسخة بوت أخرى شغالة حالياً — أغلها أولاً (Ctrl+C) ثم شغّل نسخة وحدة.{RST()}")
+    # كل التفاعل بأزرار (بدون أوامر) — ما يحتاج setMyCommands
     print(f"{C('GREEN')}🚀 البوت شغّال... (Ctrl+C للإيقاف){RST()}")
     # استخدم timeout=10 (وليس 30) — لو الاتصال بـ api.telegram.org ضعيف،
     # getUpdates راجع كل 10 ثوانٍ وراح يكمل بدون انقطاع طويل.
@@ -857,4 +907,10 @@ def main():
         terminal_menu_loop()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        # إزالة قفل النسخة الوحيدة عند الخروج
+        lock_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".bot_lock")
+        if os.path.exists(lock_path):
+            os.remove(lock_path)
