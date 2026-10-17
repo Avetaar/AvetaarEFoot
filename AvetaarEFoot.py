@@ -840,21 +840,19 @@ def _send_compare_result(token, chat_id, handle_a, handle_b):
     })
 
 def _single_instance_lock():
-    """قفل ضمان نسخة وحدة — يمنع 'Conflict: terminated by other getUpdates request'
-    لما أكثر من نسخة بوت تحاول استطلاع نفس التوكن في نفس الوقت."""
-    import socket
-    # نحفظ اللوك في ملف مؤقت جانبي
+    """قفل ضمان نسخة وحدة — يمنع 'Conflict: terminated by other getUpdates request'.
+    يعتمد على os.kill(pid, 0) (يشيك وجود العملية على ويندوز ولينكس) — ما يحتاج tasklist/wmic."""
+    import signal
     lock_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".bot_lock")
     if os.path.exists(lock_path):
         with open(lock_path) as f:
             old_pid = f.read().strip()
         try:
-            # تحقق إذا العملية القديمة ما زالت شغالة
-            import signal
-            os.kill(int(old_pid), 0)
-            return False  # نسخة ثانية ما زالت شغالة
+            os.kill(int(old_pid), 0)  # شغال؟
+            return False  # نسخة قديمة ما زالت شغالة — لا تنشأ جديدة
         except (ProcessLookupError, ValueError, OSError):
-            pass
+            pass  # النسخة القديمة متوفاة أو PID غير صالح — امسح القفل العالق
+        os.remove(lock_path)
     with open(lock_path, "w") as f:
         f.write(str(os.getpid()))
     return True
