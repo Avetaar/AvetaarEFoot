@@ -797,7 +797,7 @@ def avetaar_main():
     parser.add_argument("--bot", action="store_true", help="شغل وضع البوت")
     args, unknown = parser.parse_known_args()
     if args.bot:
-        bot_run_long_poll()
+        avetaar_bot_run_long_poll()
     else:
         avetaar_terminal_menu_loop()
 
