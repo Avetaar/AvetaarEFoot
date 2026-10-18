@@ -21,7 +21,7 @@ python AvetaarEFoot.py
 
 ## شغل البوت
 
-1. أنشئ بوتاً مع [@BotFather](https://t.me/BotFather) واكتب التوكن في ملف `.env` بجانب السكربت:
+1. أنشئ بوتاً مع [@BotFather](https://t.me/BotFather) واكتب التوكن في ملف `
    ```env
    BOT_TOKEN=1234567890:AAA...
    ```
@@ -44,4 +44,4 @@ python AvetaarEFoot.py
 
 - الأسماء تُقبل **بالإنجليزية بدون مسافات** (مثل `mbappe`، `messi`، `kane`، `neuer`).
 - لا يحتاج المشروع أي مفاتيح API — eFootball API عام.
-- ملف `.env` لا يُضاف إلى Git (يُستبعد) — أنشئه محلياً.
+- ملف `
