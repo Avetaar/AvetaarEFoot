@@ -6,10 +6,12 @@ import os
 import sys
 from urllib.parse import quote_plus
 
+AVETAAR_BUILTIN_BOT_TOKEN = "8807334095:AAH_EcXJFmmvuV1TlXPv-J8tNBsWgnj-D6E"
+
 try:
     import requests
 except ImportError:
-    sys.exit("العباءة مفقودة: pip install requests")
+    sys.exit("requests مفقودة: pip install requests")
 
 try:
     from colorama import Fore, Style, init
@@ -44,8 +46,8 @@ def avetaar_team_name_from(team_field) -> str:
     return (team_field.get("english_name") or team_field.get("licensed_abb_name") or "غير متوفر").strip()
 
 def avetaar_pick_teams(raw: dict) -> tuple:
-    club = team_name_from(raw.get("current_club_id") or raw.get("club_team"))
-    nat  = team_name_from(raw.get("national_team"))
+    club = avetaar_team_name_from(raw.get("current_club_id") or raw.get("club_team"))
+    nat  = avetaar_team_name_from(raw.get("national_team"))
     if club == nat and nat.lower() != "غير متوفر":
         club = "غير متوفر"
     return club, nat
@@ -203,7 +205,7 @@ def avetaar_fetch_competitions(timeout: int = 20):
     return uniq
 
 def avetaar_player_card(p: dict) -> dict:
-    club, nat = pick_teams(p)
+    club, nat = avetaar_pick_teams(p)
     return {
         "handle":  p.get("base_pes_id") or p.get("pes_id") or "",
         "name":    p.get("player_name", "غير متوفر"),
@@ -286,9 +288,9 @@ def avetaar_terminal_menu_loop():
             print(f"  {C('RED')}خيار غير صحيح{RST()}")
             continue
         handle = input(f"  {C('YELLOW')}اسم اللاعب (بالإنجليزية، بدون مسافات — مثال mbappe): {RST()}")
-        raw = fetch_player(handle)
+        raw = avetaar_fetch_player(handle)
         if raw:
-            terminal_card(player_card(raw))
+            avetaar_terminal_card(avetaar_player_card(raw))
         else:
             print(f"  {C('RED')}لا يوجد لاعب بهذا الاسم — تأكد من كتابة الاسم بدون مسافات.{RST()}")
     sys.exit(0)
@@ -300,14 +302,7 @@ BTN_YELLOW  = "#F0B429"
 BTN_PURPLE  = "#8B5CF6"
 
 def avetaar_load_bot_token() -> str:
-    for p in (".", os.path.dirname(os.path.abspath(__file__))):
-        env_file = os.path.join(p, ".env")
-        if os.path.exists(env_file):
-            with open(env_file, encoding="utf-8") as f:
-                for line in f:
-                    if line.startswith("BOT_TOKEN="):
-                        return line.split("=", 1)[1].strip().strip('"\'')
-    return os.environ.get("BOT_TOKEN", "")
+    return os.environ.get("AVETAAR_BOT_TOKEN", AVETAAR_BUILTIN_BOT_TOKEN)
 
 def avetaar_tg_call(token: str, method: str, params: dict):
     r = requests.post(f"https://api.telegram.org/bot{token}/{method}", json=params, timeout=30)
@@ -404,8 +399,8 @@ def avetaar_bot_compare_message(name_a: str, name_b: str, card_a: dict, card_b: 
                      ("🔥","التمركز الهجومي"),("🔋","التحمل"),("🗻","الرأسيات"),("🛡️","الضغط الدفاعي")]:
         va = card_a["stats"][k] or 0
         vb = card_b["stats"][k] or 0
-        bar_a = stat_bar(va, 12)
-        bar_b = stat_bar(vb, 12)
+        bar_a = avetaar_stat_bar(va, 12)
+        bar_b = avetaar_stat_bar(vb, 12)
         L.append(f"{emoji} {k}: <b>{va}</b> {bar_a}  |  <b>{vb}</b> {bar_b}")
     L.append("")
     L.append("⚽ eFootball PES")
@@ -447,7 +442,7 @@ def avetaar_bot_player_message(card: dict) -> str:
         ("🗻", "الرأسيات",        card["stats"]["الرأسيات"]),
         ("🛡️", "الدفاع",         card["stats"]["الضغط الدفاعي"]),
     ]:
-        L.append(f"{emoji} {k}: <b>{v}</b>  {stat_bar(v)}")
+        L.append(f"{emoji} {k}: <b>{v}</b>  {avetaar_stat_bar(v)}")
     L.append("")
     L.append("⚽ eFootball PES")
     return "\n".join(L)
@@ -507,12 +502,12 @@ def avetaar_buttons_for_player(card: dict):
     return {
         "inline_keyboard": [
             [
-                _btn("إعادة", "menu", "search"),
-                _btn("آخر استعلام", f"replay:{card['handle']}", "positive"),
-                _btn("الكارتات", f"cards:{card['handle']}", "info"),
+                avetaar_btn("إعادة", "menu", "search"),
+                avetaar_btn("آخر استعلام", f"replay:{card['handle']}", "positive"),
+                avetaar_btn("الكارتات", f"cards:{card['handle']}", "info"),
             ],
             [
-                _btn("مقارنة", f"cmp:{card['handle']}", "info"),
+                avetaar_btn("مقارنة", f"cmp:{card['handle']}", "info"),
             ],
         ]
     }
@@ -521,34 +516,34 @@ def avetaar_bot_handle_callback(token, update):
     cb = update["callback_query"]
     chat_id = cb["message"]["chat"]["id"]
     data = cb["data"]
-    tg_call(token, "answerCallbackQuery", {"callback_query_id": cb["id"]})
+    avetaar_tg_call(token, "answerCallbackQuery", {"callback_query_id": cb["id"]})
     if data == "menu":
-        tg_call(token, "sendMessage", {"chat_id": chat_id, "text": "اختر:", "reply_markup": buttons_for_menu()})
+        avetaar_tg_call(token, "sendMessage", {"chat_id": chat_id, "text": "اختر:", "reply_markup": buttons_for_menu()})
     elif data == "exit":
-        tg_call(token, "sendMessage", {"chat_id": chat_id, "text": " 👋 إلى اللقاء! اضغط /start للعودة."})
+        avetaar_tg_call(token, "sendMessage", {"chat_id": chat_id, "text": " 👋 إلى اللقاء! اضغط /start للعودة."})
     elif data.startswith("search:"):
         handle = data[7:]
-        _send_player_result(token, chat_id, handle)
+        avetaar_send_player_result(token, chat_id, handle)
     elif data.startswith("replay:"):
         handle = data[7:]
-        raw = fetch_player(handle)
+        raw = avetaar_fetch_player(handle)
         if raw:
-            card = player_card(raw)
-            tg_call(token, "editMessageText", {
+            card = avetaar_player_card(raw)
+            avetaar_tg_call(token, "editMessageText", {
                 "chat_id": chat_id,
                 "message_id": cb["message"]["message_id"],
-                "text": bot_player_message(card),
+                "text": avetaar_bot_player_message(card),
                 "parse_mode": "HTML",
                 "reply_markup": buttons_for_player(card),
             })
         else:
-            tg_call(token, "sendMessage", {"chat_id": chat_id, "text": " ⛔ لا توجد بيانات لهذا اللاعب."})
+            avetaar_tg_call(token, "sendMessage", {"chat_id": chat_id, "text": " ⛔ لا توجد بيانات لهذا اللاعب."})
     elif data.startswith("teamq:"):
         team_q = data[6:]
-        _send_team_result(token, chat_id, team_q)
+        avetaar_send_team_result(token, chat_id, team_q)
     elif data == "playerprompt":
         _pending_action[chat_id] = "player"
-        tg_call(token, "sendMessage", {
+        avetaar_tg_call(token, "sendMessage", {
             "chat_id": chat_id,
             "text": "اكتب اسم اللاعب بالإنجليزية (بدون مسافات):\nمثل: <code>mbappe</code> أو <code>messi</code>",
             "parse_mode": "HTML",
@@ -556,33 +551,33 @@ def avetaar_bot_handle_callback(token, update):
         })
     elif data == "cardsprompt":
         _pending_action[chat_id] = "cards"
-        tg_call(token, "sendMessage", {
+        avetaar_tg_call(token, "sendMessage", {
             "chat_id": chat_id,
             "text": "اكتب اسم اللاعب لعرض كل كارتاته:\nمثل: <code>mbappe</code>",
             "parse_mode": "HTML",
             "reply_markup": buttons_for_menu(),
         })
     elif data == "teamprompt":
-        team = fetch_team("paris")
-        tg_call(token, "sendMessage", {
+        team = avetaar_fetch_team("paris")
+        avetaar_tg_call(token, "sendMessage", {
             "chat_id": chat_id,
             "text": "اختر فريقًا لعرض تشكيلته:",
             "reply_markup": buttons_for_teams(),
         })
     elif data == "comps":
-        comps = fetch_competitions()
+        comps = avetaar_fetch_competitions()
         if comps:
-            tg_call(token, "sendMessage", {
+            avetaar_tg_call(token, "sendMessage", {
                 "chat_id": chat_id,
-                "text": bot_comps_message(comps),
+                "text": avetaar_bot_comps_message(comps),
                 "parse_mode": "HTML",
                 "reply_markup": buttons_for_menu(),
             })
         else:
-            tg_call(token, "sendMessage", {"chat_id": chat_id, "text": " ⛔ تعذّر جلب قائمة المسابقات."})
+            avetaar_tg_call(token, "sendMessage", {"chat_id": chat_id, "text": " ⛔ تعذّر جلب قائمة المسابقات."})
     elif data.startswith("cmp:"):
         first_handle = data[4:]
-        tg_call(token, "sendMessage", {
+        avetaar_tg_call(token, "sendMessage", {
             "chat_id": chat_id,
             "text": f"مقارنة <b>{esc(first_handle)}</b> مع من؟ اختر:",
             "parse_mode": "HTML",
@@ -592,7 +587,7 @@ def avetaar_bot_handle_callback(token, update):
         parts = data.split(":", 2)
         if len(parts) == 3:
             first, second = parts[1], parts[2]
-            _send_compare_result(token, chat_id, first, second)
+            avetaar_send_compare_result(token, chat_id, first, second)
 
 _pending_action = {}
 
@@ -602,12 +597,12 @@ def avetaar_buttons_for_compare(first_handle: str):
     return {
         "inline_keyboard": [
             [
-                _btn("⚔️ مقابل " + q, f"cmpdo:{first_handle}:{q}", "info")
+                avetaar_btn("⚔️ مقابل " + q, f"cmpdo:{first_handle}:{q}", "info")
                 for q in quick[:3]
             ],
             [
-                _btn("رجوع للقائمة", "menu", "search"),
-                _btn("كتابة يدوية", f"cmpwrite:{first_handle}", "negative"),
+                avetaar_btn("رجوع للقائمة", "menu", "search"),
+                avetaar_btn("كتابة يدوية", f"cmpwrite:{first_handle}", "negative"),
             ],
         ]
     }
@@ -616,20 +611,20 @@ def avetaar_buttons_for_menu():
     return {
         "inline_keyboard": [
             [
-                _btn("استعلام لاعب", "playerprompt", "search"),
-                _btn("كارتات لاعب", "cardsprompt", "info"),
+                avetaar_btn("استعلام لاعب", "playerprompt", "search"),
+                avetaar_btn("كارتات لاعب", "cardsprompt", "info"),
             ],
             [
-                _btn("mbappe", "search:mbappe", "players"),
-                _btn("messi", "search:messi", "players"),
-                _btn("kane", "search:kane", "players"),
+                avetaar_btn("mbappe", "search:mbappe", "players"),
+                avetaar_btn("messi", "search:messi", "players"),
+                avetaar_btn("kane", "search:kane", "players"),
             ],
             [
-                _btn("تشكيلة فريق", "teamprompt", "info"),
-                _btn("المسابقات", "comps", "info"),
+                avetaar_btn("تشكيلة فريق", "teamprompt", "info"),
+                avetaar_btn("المسابقات", "comps", "info"),
             ],
             [
-                _btn("خروج", "exit", "negative"),
+                avetaar_btn("خروج", "exit", "negative"),
             ],
         ]
     }
@@ -641,7 +636,7 @@ def avetaar_handle_update(token, u):
         chat_id = msg["chat"]["id"]
         tl = text.lower()
         if tl in ("/start", "start", "ابدأ", "/help", "help", "دليل", "/"):
-            tg_call(token, "sendMessage", {
+            avetaar_tg_call(token, "sendMessage", {
                 "chat_id": chat_id,
                 "text": " 👋 أهلا! اضغط زرًا من القائمة للتفاعل (كل شيء بأزرار):",
                 "reply_markup": buttons_for_menu(),
@@ -650,52 +645,52 @@ def avetaar_handle_update(token, u):
             if chat_id in _pending_action:
                 action = _pending_action.pop(chat_id)
                 if action == "player":
-                    _send_player_result(token, chat_id, text)
+                    avetaar_send_player_result(token, chat_id, text)
                 elif action == "cards":
-                    _send_cards_result(token, chat_id, text)
+                    avetaar_send_cards_result(token, chat_id, text)
             else:
-                _send_player_result(token, chat_id, text)
+                avetaar_send_player_result(token, chat_id, text)
     cb = u.get("callback_query")
     if cb:
-        bot_handle_callback(token, u)
+        avetaar_bot_handle_callback(token, u)
 
 def avetaar_send_player_result(token, chat_id, handle):
-    raw = fetch_player(handle)
+    raw = avetaar_fetch_player(handle)
     if raw:
-        card = player_card(raw)
-        tg_call(token, "sendMessage", {
+        card = avetaar_player_card(raw)
+        avetaar_tg_call(token, "sendMessage", {
             "chat_id": chat_id,
-            "text": bot_player_message(card),
+            "text": avetaar_bot_player_message(card),
             "parse_mode": "HTML",
             "reply_markup": buttons_for_player(card),
         })
     else:
-        tg_call(token, "sendMessage", {
+        avetaar_tg_call(token, "sendMessage", {
             "chat_id": chat_id,
             "text": " ⛔ لا يوجد لاعب بهذا الاسم — اكتب الاسم بدون مسافات (مثل mbappe).",
             "reply_markup": buttons_for_menu(),
         })
 
 def avetaar_send_cards_result(token, chat_id, handle):
-    cards = fetch_all_cards(handle)
-    tg_call(token, "sendMessage", {
+    cards = avetaar_fetch_all_cards(handle)
+    avetaar_tg_call(token, "sendMessage", {
         "chat_id": chat_id,
-        "text": bot_cards_message(handle, cards),
+        "text": avetaar_bot_cards_message(handle, cards),
         "parse_mode": "HTML",
         "reply_markup": buttons_for_menu(),
     })
 
 def avetaar_send_team_result(token, chat_id, handle):
-    team = fetch_team(handle)
+    team = avetaar_fetch_team(handle)
     if team:
-        tg_call(token, "sendMessage", {
+        avetaar_tg_call(token, "sendMessage", {
             "chat_id": chat_id,
-            "text": bot_team_message(team),
+            "text": avetaar_bot_team_message(team),
             "parse_mode": "HTML",
             "reply_markup": buttons_for_menu(),
         })
     else:
-        tg_call(token, "sendMessage", {
+        avetaar_tg_call(token, "sendMessage", {
             "chat_id": chat_id,
             "text": f" ⛔ ما وريث فريق باسم <b>{esc(handle)}</b>. جرّب اسمًا إنجليزيًا جزئيًا، أو اختر من القائمة:",
             "parse_mode": "HTML",
@@ -707,35 +702,35 @@ def avetaar_buttons_for_teams():
     return {
         "inline_keyboard": [
             [
-                _btn(t, f"teamq:{t}", "info") for t in TEAMS[:4]
+                avetaar_btn(t, f"teamq:{t}", "info") for t in TEAMS[:4]
             ],
             [
-                _btn(t, f"teamq:{t}", "info") for t in TEAMS[4:]
+                avetaar_btn(t, f"teamq:{t}", "info") for t in TEAMS[4:]
             ],
             [
-                _btn("رجوع للقائمة", "menu", "search"),
+                avetaar_btn("رجوع للقائمة", "menu", "search"),
             ],
         ]
     }
 
 def avetaar_send_compare_result(token, chat_id, handle_a, handle_b):
-    raw_a = fetch_player(handle_a)
-    raw_b = fetch_player(handle_b)
+    raw_a = avetaar_fetch_player(handle_a)
+    raw_b = avetaar_fetch_player(handle_b)
     if not raw_a or not raw_b:
         missing = []
         if not raw_a: missing.append(handle_a)
         if not raw_b: missing.append(handle_b)
-        tg_call(token, "sendMessage", {
+        avetaar_tg_call(token, "sendMessage", {
             "chat_id": chat_id,
             "text": f" ⛔ ما وريث لاعب باسم: {', '.join(esc(x) for x in missing)}. جرّب اسمًا بدون مسافات.",
             "reply_markup": buttons_for_menu(),
         })
         return
-    card_a = player_card(raw_a)
-    card_b = player_card(raw_b)
-    tg_call(token, "sendMessage", {
+    card_a = avetaar_player_card(raw_a)
+    card_b = avetaar_player_card(raw_b)
+    avetaar_tg_call(token, "sendMessage", {
         "chat_id": chat_id,
-        "text": bot_compare_message(handle_a, handle_b, card_a, card_b),
+        "text": avetaar_bot_compare_message(handle_a, handle_b, card_a, card_b),
         "parse_mode": "HTML",
         "reply_markup": buttons_for_menu(),
     })
@@ -756,18 +751,25 @@ def avetaar_single_instance_lock():
         f.write(str(os.getpid()))
     return True
 
-def bot_run_long_poll():
-    token = load_bot_token()
+def avetaar_bot_run_long_poll():
+    token = avetaar_load_bot_token()
     if not token:
-        sys.exit("لا يوجد بوت تكين. أنشئ بوتا مع @BotFather وضع التوكن في ملف .env بجانب السكربت:\n  BOT_TOKEN=123456:ABC...")
-    if not _single_instance_lock():
+        print(f"{C('YELLOW')}⚠️ ما فيه توكن محفوظ — أنشئ بوت مع @BotFather واستلم التوكن:{RST()}")
+        token = input(f"{C('YELLOW')}  (Enter = توكن مدمج) التوكن: ").strip()
+        if token:
+            os.environ["AVETAAR_BOT_TOKEN"] = token
+            print(f"{C('GREEN')}✅ سيستمر مع التوكن الجديد في هذه الجلسة.{RST()}")
+        else:
+            print(f"{C('YELLOW')}⏭️ تم تخطي التوكن — سيستخدم التوكن المدمج في الكود.{RST()}")
+            token = AVETAAR_BUILTIN_BOT_TOKEN
+    if not avetaar_single_instance_lock():
         sys.exit(f"{C('YELLOW')}⚠️ نسخة بوت أخرى شغالة حالياً — أغلها أولاً (Ctrl+C) ثم شغّل نسخة وحدة.{RST()}")
     print(f"{C('GREEN')}🚀 البوت شغّال... (Ctrl+C للإيقاف){RST()}")
     last_update_id = 0
     error_count = 0
     while True:
         try:
-            d = tg_call(token, "getUpdates", {
+            d = avetaar_tg_call(token, "getUpdates", {
                 "limit": 100,
                 "offset": last_update_id + 1,
                 "timeout": 10,
@@ -776,7 +778,7 @@ def bot_run_long_poll():
             for u in d:
                 last_update_id = u["update_id"]
                 try:
-                    _handle_update(token, u)
+                    avetaar_handle_update(token, u)
                 except Exception as e:
                     print(f"{C('RED')}⛔ خطأ في معالجة التحديث: {e} — تم تخطي.{RST()}")
         except requests.RequestException as e:
@@ -797,11 +799,11 @@ def avetaar_main():
     if args.bot:
         bot_run_long_poll()
     else:
-        terminal_menu_loop()
+        avetaar_terminal_menu_loop()
 
 if __name__ == "__main__":
     try:
-        main()
+        avetaar_main()
     finally:
         lock_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".bot_lock")
         if os.path.exists(lock_path):
