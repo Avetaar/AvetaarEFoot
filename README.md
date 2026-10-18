@@ -1,3 +1,22 @@
+## التثبيت و التشغيل بأمر واحد
+
+### ويندوز (انسخه للصاقه)
+```bat
+git clone https://github.com/Avetaar/AvetaarEFoot.git && cd AvetaarEFoot && python -m venv venv && venv\Scripts\activate && pip install -r requirements.txt && python AvetaarEFoot.py
+```
+
+### لينكس / ماك (انسخه للصاقه)
+```bash
+git clone https://github.com/Avetaar/AvetaarEFoot.git && cd AvetaarEFoot && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt && python AvetaarEFoot.py
+```
+
+### أو شغل سكربت التثبيت الجاهز
+```
+AvetaarEFoot_run.bat      (ويندوز — شغل وضع الترمينال)
+AvetaarEFoot_run.bat bot  (ويندوز — شغل وضع البوت)
+./AvetaarEFoot_run.sh     (لينكس/ماك — شغل وضع الترمينال)
+./AvetaarEFoot_run.sh bot (لينكس/ماك — شغل وضع البوت)
+```
 # Avetaar EFootball Player
 ## eFootball 2022 (PES) دليل الاستعلام عن اللاعبين
 

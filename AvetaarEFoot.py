@@ -763,14 +763,22 @@ def avetaar_single_instance_lock():
 def avetaar_bot_run_long_poll():
     token = avetaar_load_bot_token()
     if not token:
-        print(f"{C('YELLOW')}⚠️ ما فيه توكن محفوظ — أنشئ بوت مع @BotFather واستلم التوكن:{RST()}")
-        token = input(f"{C('YELLOW')}  (Enter = توكن مدمج) التوكن: ").strip()
-        if token:
-            os.environ["AVETAAR_BOT_TOKEN"] = token
-            print(f"{C('GREEN')}✅ سيستمر مع التوكن الجديد في هذه الجلسة.{RST()}")
+        print(f"{C('YELLOW')}⚠️ ما فيه توكن — أنشئ بوت مع @BotFather واستلم التوكن.{RST()}")
+        print(f"{C('CYAN')}  الخيارات:{RST()}")
+        print(f"   [1] أدخل توكن جديد")
+        print(f"   [2] تخطي — استخدم التوكن المدمج ({AVETAAR_BUILTIN_BOT_TOKEN[:10]}...)")
+        choice = input(f"{C('YELLOW')}  الاختيار (1/2): ").strip()
+        if choice == "1":
+            token = input(f"{C('YELLOW')}  التوكن: ").strip()
+            if token:
+                os.environ["AVETAAR_BOT_TOKEN"] = token
+                print(f"{C('GREEN')}✅ سيستمر مع التوكن الجديد في هذه الجلسة.{RST()}")
+            else:
+                print(f"{C('RED')}التوكن فاضي — ما تقدر تشغل البوت بدون توكن.{RST()}")
+                sys.exit(1)
         else:
-            print(f"{C('YELLOW')}⏭️ تم تخطي التوكن — سيستخدم التوكن المدمج في الكود.{RST()}")
             token = AVETAAR_BUILTIN_BOT_TOKEN
+            print(f"{C('YELLOW')}⏭️ سيستخدم التوكن المدمج.{RST()}")
     if not avetaar_single_instance_lock():
         sys.exit(f"{C('YELLOW')}⚠️ نسخة بوت أخرى شغالة حالياً — أغلها أولاً (Ctrl+C) ثم شغّل نسخة وحدة.{RST()}")
     print(f"{C('GREEN')}🚀 البوت شغّال... (Ctrl+C للإيقاف){RST()}")
@@ -804,6 +812,7 @@ def avetaar_bot_run_long_poll():
 def avetaar_main():
     parser = argparse.ArgumentParser(description="Avetaar EFootball Player")
     parser.add_argument("--bot", action="store_true", help="شغل وضع البوت")
+    parser.add_argument("-h", "--help", action="help", help="اعرض هذه الرسالة")
     args, unknown = parser.parse_known_args()
     if args.bot:
         avetaar_bot_run_long_poll()
