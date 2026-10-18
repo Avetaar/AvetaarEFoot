@@ -6,7 +6,7 @@ import os
 import sys
 from urllib.parse import quote_plus
 
-AVETAAR_BUILTIN_BOT_TOKEN = "8807334095:AAH_EcXJFmmvuV1TlXPv-J8tNBsWgnj-D6E"
+AVETAAR_BUILTIN_BOT_TOKEN = "T000000000"
 
 try:
     import requests
