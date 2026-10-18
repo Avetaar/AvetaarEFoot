@@ -736,16 +736,25 @@ def avetaar_send_compare_result(token, chat_id, handle_a, handle_b):
     })
 
 def avetaar_single_instance_lock():
-    import signal
+    import subprocess, signal
     lock_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".bot_lock")
     if os.path.exists(lock_path):
         with open(lock_path) as f:
             old_pid = f.read().strip()
+        alive = False
         try:
-            os.kill(int(old_pid), 0)
+            r = subprocess.run(["tasklist", "/FI", f"PID eq {old_pid}"],
+                               capture_output=True, text=True, timeout=30)
+            alive = old_pid in r.stdout
+        except Exception:
+            # fallback: os.kill(pid, 0) — works on Linux & usually Windows
+            try:
+                os.kill(int(old_pid), 0)
+                alive = True
+            except (ProcessLookupError, ValueError, OSError):
+                alive = False
+        if alive:
             return False
-        except (ProcessLookupError, ValueError, OSError):
-            pass
         os.remove(lock_path)
     with open(lock_path, "w") as f:
         f.write(str(os.getpid()))
